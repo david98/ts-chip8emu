@@ -25,17 +25,21 @@ export class Chip8Screen {
 
     public draw(sprite: number[], x: number, y: number): boolean {
         let collision = false
+        x = x % this.size.x
+        y = y % this.size.y
         for (let j = 0; j < sprite.length; j++) {
             let row = sprite[j]
             let pixels = row.toString(2)
             for (let i = 0; i < 8; i++) {
-                if (pixels[i] === '1') {
-                    let actualX = (x + i) % this.size.x
-                    let actualY = (y + j) % this.size.y
-                    if (!this.isEmpty(actualX, actualY, 1, 1)) {
+                if (
+                    pixels[i] === '1' &&
+                    x + i < this.size.x &&
+                    y + j < this.size.y
+                ) {
+                    if (!this.isEmpty(x + i, y + j, 1, 1)) {
                         collision = true
                     }
-                    this.ctx.fillRect(actualX, actualY, 1, 1)
+                    this.ctx.fillRect(x + i, y + j, 1, 1)
                 }
             }
         }

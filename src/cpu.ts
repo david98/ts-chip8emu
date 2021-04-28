@@ -27,7 +27,7 @@ class Registers implements IRawAccess {
     private VF: number = 0 // not to be used by programs
     private I: number = 0 // 16 bit
 
-    private PC: number = 0 // 16 bit
+    private PC: number = 0x200 // 16 bit
     private SP: number = 0 // 8 bit
 
     private DT: number = 0 // 8-bit delay timer
@@ -114,10 +114,22 @@ export class CPU {
     public screen: Chip8Screen
     public ram: RAM = new RAM()
     public registers: Registers = new Registers()
-    private stack: number[] // 16 16-bit values
+    private stack: number[] = [] // 16 16-bit values
 
     private static NotImplemented(name: string): void {
         console.warn(`Instruction ${name} hasn't been implemented yet.`)
+    }
+
+    public loadROM(instructions: string[]): void {
+        let addr = 0x200
+        for (let instr of instructions) {
+            let b1 = parseInt(instr[0] + instr[1], 16)
+            let b2 = parseInt(instr[2] + instr[3], 16)
+            this.ram.write(addr, b1)
+            addr++
+            this.ram.write(addr, b2)
+            addr++
+        }
     }
 
     public CLS(): void {
@@ -204,5 +216,48 @@ export class CPU {
         let collision = this.screen.draw(sprite, x, y)
 
         this.registers.write('VF', collision ? 1 : 0)
+    }
+
+    public clock(): void {
+        let bytes = this.ram.read(this.registers.getPC(), 2)
+        if (bytes[0] === undefined && bytes[1] === undefined) {
+            throw new Error('No more instructions.')
+        }
+        let b1 = bytes[0] ? bytes[0].toString(16) : ''
+        let b2 = bytes[1] ? bytes[1].toString(16) : ''
+        let instr = b1 + b2
+        console.log('Before padding: ' + instr)
+        while (instr.length < 4) {
+            instr = '0' + instr
+        }
+        console.log('After padding: ' + instr)
+        instr = instr.toUpperCase()
+        this.execute(instr)
+        this.registers.setPC(this.registers.getPC() + 2)
+    }
+
+    private execute(instr: string): void {
+        if (instr[0] === '0') {
+            // 0NNN, 00E0, 00EE
+            if (instr === '00EE') {
+                this.RET()
+            } else if (instr === '00E0') {
+                this.CLS()
+            } else {
+                CPU.NotImplemented(instr)
+            }
+        } else if (instr[0] === '1') {
+            this.JP(parseInt(instr[1] + instr[2] + instr[3], 16))
+        } else if (instr[0] === '2') {
+            this.CALL(parseInt(instr[1] + instr[2] + instr[3], 16))
+        } else if (instr[0] === '3') {
+            this.SE('V' + instr[1], parseInt(instr[2] + instr[3], 16))
+        } else if (instr[0] === '4') {
+            this.SNE('V' + instr[1], parseInt(instr[2] + instr[3], 16))
+        } else if (instr[0] === '5') {
+            this.SE('V' + instr[1], 'V' + instr[2])
+        } else if (instr[0] === '9') {
+            this.SNE('V' + instr[1], 'V' + instr[2])
+        }
     }
 }
